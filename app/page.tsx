@@ -1,69 +1,78 @@
-import Image from "next/image";
+"use client";
+import { useCallback, useEffect, useState } from "react";
+import { Box, Palette, Sparkles, Upload } from "lucide-react";
+import { Dropzone } from "@/components/ui/Dropzone";
+import { FrameModal } from "@/components/ui/FrameModal";
+import { Studio } from "@/components/ui/Studio";
+import type { FrameResult } from "@/lib/types";
 
-export default function Home() {
+import { parseDirectSvg } from "@/lib/vectorize";
+
+const STEPS = [
+  { Icon: Upload, t: "Drop a picture", d: "SVG, PNG, JPG or WEBP" }, { Icon: Sparkles, t: "Frame & cut out", d: "Circle, square or original" },
+  { Icon: Palette, t: "Swap colours", d: "Mix your own palette" }, { Icon: Box, t: "Spin it in 3D", d: "Add text, tweak, admire" },
+];
+
+export default function Page() {
+  const [bmp, setBmp] = useState<ImageBitmap | null>(null);
+  const [result, setResult] = useState<FrameResult | null>(null);
+  const [drag, setDrag] = useState(false);
+  const pick = useCallback(async (f: File) => {
+    if (f.name.toLowerCase().endsWith(".svg") || f.type === "image/svg+xml") {
+      try {
+        const text = await f.text();
+        const parsed = parseDirectSvg(text);
+        if (parsed.layers.length > 0) {
+          setResult(parsed);
+          return;
+        }
+      } catch (e) {
+        console.error("Direct SVG parsing failed, falling back to bitmap:", e);
+      }
+    }
+    setBmp(await createImageBitmap(f));
+  }, []);
+
+  useEffect(() => {
+    const over = (e: DragEvent) => { e.preventDefault(); setDrag(true); };
+    const leave = (e: DragEvent) => { if (!e.relatedTarget) setDrag(false); };
+    const drop = (e: DragEvent) => {
+      e.preventDefault();
+      setDrag(false);
+      const f = e.dataTransfer?.files[0];
+      if (f && (f.type.startsWith("image/") || f.name.toLowerCase().endsWith(".svg") || f.type === "image/svg+xml")) pick(f);
+    };
+    const paste = (e: ClipboardEvent) => {
+      const f = [...(e.clipboardData?.files ?? [])].find((x) => x.type.startsWith("image/") || x.name.toLowerCase().endsWith(".svg") || x.type === "image/svg+xml");
+      if (f) pick(f);
+    };
+    window.addEventListener("dragover", over); window.addEventListener("dragleave", leave);
+    window.addEventListener("drop", drop); window.addEventListener("paste", paste);
+    return () => { window.removeEventListener("dragover", over); window.removeEventListener("dragleave", leave); window.removeEventListener("drop", drop); window.removeEventListener("paste", paste); };
+  }, [pick]);
+
+  if (result) return <Studio {...result} onBack={() => setResult(null)} />;
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-gradient-to-br from-[#fff4ea] via-[#ffe8df] to-[#ffdce6] text-[#4a2c3a]">
+      <nav className="mx-auto flex max-w-6xl items-center gap-2 px-6 py-5 text-lg font-semibold"><span className="grid size-9 place-items-center rounded-xl bg-rose-100 text-rose-500"><Sparkles className="size-5" /></span>Kawaii 3D</nav>
+      <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-12 md:grid-cols-2">
+        <div>
+          <h1 className="text-5xl font-semibold leading-[1.05] md:text-6xl">Turn any picture into a tiny 3D keepsake.</h1>
+          <p className="mt-5 max-w-md text-lg text-[#4a2c3a]/70">Drop in a logo, doodle or photo. We trace it, let you recolour every shade, and build a chunky layered model you can spin around.</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="rounded-[2rem] border border-white/80 bg-white/70 p-6 shadow-xl shadow-rose-200/50 backdrop-blur">
+          <h2 className="mb-3 text-sm font-semibold">Start with an image</h2>
+          <Dropzone onFile={pick} />
+          <p className="mt-3 text-xs text-[#4a2c3a]/60">You can also drop anywhere on this page, or paste with Ctrl+V.</p>
         </div>
-      </main>
-    </div>
+      </section>
+      <section className="mx-auto grid max-w-6xl gap-4 px-6 pb-16 sm:grid-cols-2 md:grid-cols-4">
+        {STEPS.map(({ Icon, t, d }) => (
+          <div key={t} className="rounded-3xl bg-white/60 p-5"><Icon className="mb-3 size-6 text-rose-400" /><b className="block">{t}</b><span className="text-sm text-[#4a2c3a]/60">{d}</span></div>
+        ))}
+      </section>
+      {drag && <div className="pointer-events-none fixed inset-4 z-40 grid place-items-center rounded-[2rem] border-4 border-dashed border-rose-400 bg-rose-100/70 text-2xl font-semibold text-rose-500 backdrop-blur-sm">Drop your image here</div>}
+      {bmp && <FrameModal bmp={bmp} onClose={() => setBmp(null)} onDone={setResult} />}
+    </main>
   );
 }
